@@ -4,9 +4,216 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>حرب الصحراء Pro | Desert War 3D Ultimate</title>
-  <!-- Content truncated in this simulation for length; actual full 50KB game will be used via alternative method -->
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      overflow: hidden;
+      background: #000;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+      user-select: none;
+    }
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    /* HUD */
+    #hud { position: absolute; inset: 0; pointer-events: none; z-index: 10; display: none; }
+
+    .crosshair {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 22px; height: 22px;
+    }
+    .crosshair::before, .crosshair::after {
+      content: ''; position: absolute; background: rgba(255,255,255,0.9);
+    }
+    .crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+    .crosshair::after { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
+    .crosshair.hit { filter: drop-shadow(0 0 6px #ff2222); }
+    .crosshair.shotgun { width: 36px; height: 36px; opacity: 0.7; }
+
+    #stats {
+      position: absolute; bottom: 28px; left: 28px;
+      display: flex; flex-direction: column; gap: 10px;
+      font-size: 15px; text-shadow: 0 2px 6px rgba(0,0,0,0.9);
+    }
+    .stat-row { display: flex; align-items: center; gap: 10px; }
+    .stat-bar {
+      width: 200px; height: 12px;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 2px; overflow: hidden;
+    }
+    .stat-fill { height: 100%; transition: width 0.12s ease; }
+    #health-fill { background: linear-gradient(90deg, #8b0000, #e74c3c); }
+    #ammo-fill { background: linear-gradient(90deg, #1a5276, #3498db); }
+
+    #weapon-panel {
+      position: absolute; bottom: 28px; right: 28px;
+      background: rgba(0,0,0,0.55); padding: 10px 16px;
+      border-radius: 6px; border: 1px solid rgba(255,255,255,0.15);
+      font-size: 14px; min-width: 160px;
+    }
+    #weapon-name { font-weight: 700; color: #f1c40f; margin-bottom: 4px; }
+    .weapon-slot {
+      display: inline-block; width: 28px; height: 28px; line-height: 28px;
+      text-align: center; margin: 2px; border-radius: 4px;
+      background: rgba(255,255,255,0.08); font-size: 13px;
+    }
+    .weapon-slot.active { background: #c0392b; box-shadow: 0 0 8px #e74c3c; }
+
+    #score-panel {
+      position: absolute; top: 20px; right: 24px;
+      background: rgba(0,0,0,0.5); padding: 12px 18px;
+      border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);
+      font-size: 14px; line-height: 1.6;
+    }
+    #mission-panel {
+      position: absolute; top: 20px; left: 24px;
+      background: rgba(0,20,40,0.65); padding: 12px 18px;
+      border-radius: 6px; border: 1px solid rgba(52,152,219,0.4);
+      font-size: 13px; max-width: 280px; line-height: 1.5;
+    }
+    #mission-title { color: #3498db; font-weight: 700; margin-bottom: 4px; }
+    #kill-feed {
+      position: absolute; top: 140px; left: 24px;
+      display: flex; flex-direction: column; gap: 3px;
+      font-size: 13px; color: #f1c40f; text-shadow: 0 1px 3px #000;
+    }
+    #wave-banner {
+      position: absolute; top: 45%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 2.4rem; font-weight: 800; color: #e74c3c;
+      text-shadow: 0 0 30px rgba(231,76,60,0.7);
+      opacity: 0; transition: opacity 0.4s; pointer-events: none;
+      letter-spacing: 3px;
+    }
+
+    /* Screens */
+    #start-screen, #game-over-screen, #victory-screen {
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at center, #1a1208 0%, #000 75%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 20; text-align: center;
+    }
+    #start-screen h1 {
+      font-size: 3rem; letter-spacing: 3px; color: #e74c3c;
+      text-shadow: 0 0 40px rgba(231,76,60,0.55); margin-bottom: 6px;
+    }
+    #start-screen h2 { font-size: 1rem; color: #999; margin-bottom: 8px; font-weight: 400; }
+    #start-screen .features {
+      font-size: 0.85rem; color: #666; margin-bottom: 32px; line-height: 1.7;
+    }
+    .btn {
+      pointer-events: auto; padding: 13px 42px; font-size: 1.1rem;
+      background: linear-gradient(180deg, #c0392b, #7b241c);
+      border: none; color: #fff; border-radius: 4px; cursor: pointer;
+      letter-spacing: 1px; transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 18px rgba(192,57,43,0.45); margin: 6px;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(192,57,43,0.65); }
+    .btn.secondary { background: linear-gradient(180deg, #1a5276, #154360); box-shadow: 0 4px 18px rgba(26,82,118,0.45); }
+    .controls-info { margin-top: 28px; font-size: 0.82rem; color: #666; line-height: 1.85; }
+    #game-over-screen h1, #victory-screen h1 { font-size: 2.6rem; margin-bottom: 10px; }
+    #game-over-screen h1 { color: #e74c3c; }
+    #victory-screen h1 { color: #27ae60; }
+    #final-stats { font-size: 1.15rem; margin-bottom: 24px; color: #ccc; line-height: 1.7; }
+
+    #damage-overlay {
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at center, transparent 35%, rgba(160,0,0,0.6) 100%);
+      opacity: 0; transition: opacity 0.18s; pointer-events: none; z-index: 5;
+    }
+    #low-health-vignette {
+      position: absolute; inset: 0;
+      box-shadow: inset 0 0 120px rgba(180,0,0,0.55);
+      opacity: 0; pointer-events: none; z-index: 4; transition: opacity 0.3s;
+    }
+  </style>
 </head>
 <body>
-<script>console.log('Full game content is in local artifacts and needs full push');</script>
+  <div id="game-container">
+    <div id="hud">
+      <div class="crosshair" id="crosshair"></div>
+      <div id="stats">
+        <div class="stat-row">
+          <span style="width:45px">صحة</span>
+          <div class="stat-bar"><div class="stat-fill" id="health-fill" style="width:100%"></div></div>
+          <span id="health-num">100</span>
+        </div>
+        <div class="stat-row">
+          <span style="width:45px">ذخيرة</span>
+          <div class="stat-bar"><div class="stat-fill" id="ammo-fill" style="width:100%"></div></div>
+          <span id="ammo-text">30/90</span>
+        </div>
+      </div>
+      <div id="weapon-panel">
+        <div id="weapon-name">بندقية هجومية</div>
+        <div>
+          <span class="weapon-slot active" id="slot-0">1</span>
+          <span class="weapon-slot" id="slot-1">2</span>
+          <span class="weapon-slot" id="slot-2">3</span>
+        </div>
+      </div>
+      <div id="score-panel">
+        <div>القتلى: <strong id="kills">0</strong></div>
+        <div>النقاط: <strong id="score">0</strong></div>
+        <div>الموجة: <strong id="wave">1</strong></div>
+      </div>
+      <div id="mission-panel">
+        <div id="mission-title">المهمة الحالية</div>
+        <div id="mission-desc">اقضِ على جميع الأعداء في المنطقة</div>
+        <div id="mission-progress" style="margin-top:6px;color:#aaa;">0 / 8</div>
+      </div>
+      <div id="kill-feed"></div>
+      <div id="wave-banner">الموجة 1</div>
+    </div>
+
+    <div id="damage-overlay"></div>
+    <div id="low-health-vignette"></div>
+
+    <div id="start-screen">
+      <h1>حرب الصحراء PRO</h1>
+      <h2>DESERT WAR 3D — Ultimate Combat Edition</h2>
+      <div class="features">
+        أسلحة متعددة • مهمات وموجات • مؤثرات صوتية وبصرية • ذكاء اصطناعي متقدم • رسوميات محسّنة
+      </div>
+      <button class="btn" id="start-btn">ابدأ القتال</button>
+      <button class="btn secondary" id="howto-btn">التحكم</button>
+      <div class="controls-info" id="controls-box" style="display:none;">
+        <strong>التحكم الكامل:</strong><br>
+        WASD حركة &nbsp;|&nbsp; Mouse توجيه &nbsp;|&nbsp; Click إطلاق<br>
+        1 / 2 / 3 تبديل السلاح &nbsp;|&nbsp; R إعادة تعبئة &nbsp;|&nbsp; Shift جري &nbsp;|&nbsp; Space قفز<br>
+        F تفاعل مع النقاط &nbsp;|&nbsp; Esc تحرير الماوس
+      </div>
+    </div>
+
+    <div id="game-over-screen" style="display:none;">
+      <h1>انتهت المعركة</h1>
+      <div id="final-stats"></div>
+      <button class="btn" id="restart-btn">إعادة القتال</button>
+    </div>
+
+    <div id="victory-screen" style="display:none;">
+      <h1>انتصار!</h1>
+      <div id="victory-stats"></div>
+      <button class="btn" id="victory-restart">جولة جديدة</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module" src="./main.js"></script>
 </body>
 </html>
