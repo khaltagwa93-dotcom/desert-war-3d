@@ -1,2 +1,8 @@
-# desert-war-3d
-Desert War 3D - Professional browser-based FPS war combat game with waves, multiple weapons, procedural audio, particles and post-processing
+# حرب الصحراء PRO | Desert War 3D Ultimate
+
+لعبة قتالية حربية ثلاثية الأبعاد احترافية تعمل في المتصفح.
+
+## التشغيل
+افتح index.html أو انشر على Vercel.
+
+انظر التفاصيل في الكود.
